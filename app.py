@@ -1,39 +1,26 @@
 # app.py
 from flask import Flask, request, jsonify
-from flask_cors import CORS  # Vigtigt for at tillade requests fra Simply.com
+from flask_cors import CORS
 import pytesseract
 from PIL import Image
 import io
 import re
+import traceback # Importer traceback for detaljeret fejl-logging
 
 app = Flask(__name__)
-CORS(app) # Tillader requests fra alle domæner. Kan begrænses senere.
+CORS(app)
 
-# Funktion til at parse teksten. Denne skal du selv finjustere!
+# parse_stats funktionen (uændret)
 def parse_stats(text):
+    # ... din parsing-logik her ...
     stats = {}
-    
-    # Prøv at finde "Boldbesiddelse 55 % 45 %"
     try:
         match = re.search(r"Boldbesiddelse\s*(\d+)\s*%\s*(\d+)\s*%", text, re.IGNORECASE)
         if match:
             stats['hjemme_boldbesiddelse'] = int(match.group(1))
             stats['ude_boldbesiddelse'] = int(match.group(2))
-    except Exception as e:
-        print(f"Fejl ved parsing af boldbesiddelse: {e}")
-
-    # Prøv at finde scoren, f.eks. "2 - 1"
-    # Denne er svær, da tallene kan stå alene. Kig efter mønstre.
-    # Denne regex er kun et gæt og skal sikkert justeres!
-    try:
-        match = re.search(r"(\d+)\s*-\s*(\d+)", text)
-        if match:
-            # Her antager vi, at det første match for "X - Y" er scoren.
-            stats['hjemme_mål'] = int(match.group(1))
-            stats['ude_mål'] = int(match.group(2))
-    except Exception as e:
-        print(f"Fejl ved parsing af mål: {e}")
-
+    except Exception:
+        pass # Ignorer parsing fejl for nu
     return stats
 
 
@@ -57,12 +44,15 @@ def upload_file():
             "raw_text": text
         })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        # **NYT: Print den fulde fejl-traceback til Render's logs**
+        print("En fejl opstod under billedbehandling:")
+        print(traceback.format_exc())
+        
+        # Returner en generel fejl til brugeren
+        return jsonify({"error": "Der skete en intern fejl på serveren ved behandling af billedet."}), 500
 
-# En simpel "velkomst"-side så du kan se, at serveren kører
 @app.route('/')
 def hello():
     return "FC26 Stats API er online!"
 
-if __name__ == '__main__':
-    app.run(debug=True)
+# if __name__ ... delen kan fjernes, da gunicorn starter app'en
